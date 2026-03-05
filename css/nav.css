@@ -1,0 +1,113 @@
+/* Navigation Header */
+.navbar {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 1rem 0;
+  transition: background-color 0.3s ease;
+}
+
+.nav-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  position: relative;
+}
+
+/* Position the menu at the center of the container */
+.nav-menu {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Keep logo on the left */
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.logo-my, .title-my { color: #ff9800; }
+.logo-tibanga, .title-tibanga { color: #0147AE; }
+.logo-portal, .title-portal { color: #ff9800; }
+
+.nav-menu ul {
+  display: flex;
+  list-style: none;
+  gap: 2rem;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: #333;
+  font-weight: 500;
+  transition: color 0.3s ease;
+  position: relative;
+  padding: 0.25rem 0;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: #0147AE;
+}
+
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #0147AE;
+}
+
+.login-btn {
+  background: #0147AE;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 25px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.login-btn:hover {
+  background: #1565c0;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(25, 118, 210, 0.3);
+}
+
+.login-btn:focus {
+  outline: 2px solid #ff9800;
+  outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+  .nav-container {
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 0 1rem;
+  }
+
+  .nav-menu ul {
+    gap: 1rem;
+    justify-content: center;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .navbar {
+    background: white;
+    border-bottom: 2px solid #0147AE;
+  }
+}
