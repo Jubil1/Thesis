@@ -13,8 +13,8 @@ export async function POST(request) {
             );
         }
 
-        // Find user by username
-        const user = findUserByUsername(username);
+        // Find user by username (now reads from PostgreSQL)
+        const user = await findUserByUsername(username);
         if (!user) {
             return NextResponse.json(
                 { success: false, message: 'Invalid username or password' },

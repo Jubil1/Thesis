@@ -1,26 +1,13 @@
 import bcrypt from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
-import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { query } from '@/lib/db';
 
 const JWT_SECRET = new TextEncoder().encode(
     process.env.JWT_SECRET || 'mytibangaportal-secret-key-change-in-production'
 );
 
 const COOKIE_NAME = 'session';
-const USERS_PATH = join(process.cwd(), 'data', 'users.json');
-
-// Load users from JSON file
-function getUsers() {
-    const data = readFileSync(USERS_PATH, 'utf-8');
-    return JSON.parse(data);
-}
-
-// Save users back to JSON file
-function saveUsers(users) {
-    writeFileSync(USERS_PATH, JSON.stringify(users, null, 2));
-}
 
 // Verify a password — auto-hashes plaintext passwords on first check
 export async function verifyPassword(plain, storedPassword, user) {
@@ -29,12 +16,7 @@ export async function verifyPassword(plain, storedPassword, user) {
         if (plain === storedPassword) {
             // Hash it and save for future logins
             const hashed = await bcrypt.hash(plain, 10);
-            const users = getUsers();
-            const idx = users.findIndex((u) => u.id === user.id);
-            if (idx !== -1) {
-                users[idx].password = hashed;
-                saveUsers(users);
-            }
+            await query('UPDATE users SET password = $1 WHERE id = $2', [hashed, user.id]);
             return true;
         }
         return false;
@@ -43,15 +25,33 @@ export async function verifyPassword(plain, storedPassword, user) {
 }
 
 // Find a user by email
-export function findUserByEmail(email) {
-    const users = getUsers();
-    return users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+export async function findUserByEmail(email) {
+    const { rows } = await query(
+        'SELECT * FROM users WHERE LOWER(email) = LOWER($1)',
+        [email]
+    );
+    return rows[0] || null;
 }
 
 // Find a user by username
-export function findUserByUsername(username) {
-    const users = getUsers();
-    return users.find((u) => u.username && u.username.toLowerCase() === username.toLowerCase());
+export async function findUserByUsername(username) {
+    const { rows } = await query(
+        'SELECT * FROM users WHERE LOWER(username) = LOWER($1)',
+        [username]
+    );
+    // Convert DB snake_case to camelCase for compatibility
+    const u = rows[0];
+    if (!u) return null;
+    return {
+        id: u.id,
+        name: u.name,
+        username: u.username,
+        email: u.email,
+        password: u.password,
+        role: u.role,
+        superAdmin: u.super_admin,
+        permissions: u.permissions || [],
+    };
 }
 
 // Create a session JWT and set it as an HTTP-only cookie

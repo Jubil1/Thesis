@@ -1,22 +1,36 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { query } from '@/lib/db';
 
 export async function GET() {
     try {
-        const requestsPath = path.join(process.cwd(), 'data', 'requests.json');
-        const residentsPath = path.join(process.cwd(), 'data', 'residents.json');
+        // Fetch requests with their documents
+        const { rows: reqRows } = await query('SELECT * FROM requests');
+        const { rows: reqDocs } = await query('SELECT * FROM request_documents');
 
-        let requests = [];
-        let residents = [];
+        const requests = reqRows.map(r => ({
+            id: r.id,
+            requestNo: r.request_no,
+            residentName: r.resident_name,
+            totalAmount: parseFloat(r.total_amount),
+            date: r.date,
+            status: r.status,
+            paymentMethod: r.payment_method,
+            referenceNo: r.reference_no,
+            rejectionReason: r.rejection_reason,
+            documents: reqDocs
+                .filter(d => d.request_id === r.id)
+                .map(d => ({ name: d.name, quantity: d.quantity, unitPrice: parseFloat(d.unit_price), total: parseFloat(d.total) })),
+        }));
 
-        if (fs.existsSync(requestsPath)) {
-            requests = JSON.parse(fs.readFileSync(requestsPath, 'utf-8'));
-        }
-
-        if (fs.existsSync(residentsPath)) {
-            residents = JSON.parse(fs.readFileSync(residentsPath, 'utf-8'));
-        }
+        // Fetch residents
+        const { rows: resRows } = await query('SELECT * FROM residents');
+        const residents = resRows.map(r => ({
+            id: r.id, firstName: r.first_name, middleName: r.middle_name, lastName: r.last_name,
+            suffix: r.suffix, sex: r.sex, civilStatus: r.civil_status, birthdate: r.birthdate,
+            birthplace: r.birthplace, religion: r.religion, citizenship: r.citizenship,
+            purok: r.purok, barangay: r.barangay, city: r.city, mobileNumber: r.mobile_number,
+            email: r.email,
+        }));
 
         return NextResponse.json({ requests, residents });
     } catch (error) {

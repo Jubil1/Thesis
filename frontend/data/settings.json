@@ -1,0 +1,21 @@
+{
+  "documentFees": [
+    { "name": "Barangay Clearance", "fee": 70 },
+    { "name": "Barangay Certificate for Solo Parents", "fee": 60 },
+    { "name": "Barangay Certificate for Motorized Banca", "fee": 50 },
+    { "name": "Barangay Certificate of Indigency", "fee": 40 },
+    { "name": "Barangay Certificate of Residency", "fee": 30 }
+  ],
+  "puroks": [
+    "Purok 1",
+    "Purok 2",
+    "Purok 3",
+    "Purok 4",
+    "Purok 5",
+    "Purok 6",
+    "Purok 7",
+    "Purok 8",
+    "Purok 9",
+    "Purok 10"
+  ]
+}

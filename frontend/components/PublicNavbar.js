@@ -95,7 +95,7 @@ export default function PublicNavbar() {
     }, []);
 
     return (
-        <header className={styles.navbar}>
+        <header className={styles.navbar} style={user?.role === 'admin' ? { top: '32px' } : undefined}>
             <div className={styles.navContainer}>
                 <Link href="/" className={styles.logo}>
                     <span className={styles.logoMy}>My</span>

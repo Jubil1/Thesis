@@ -1,39 +1,37 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-
-const RESIDENTS_FILE = path.join(process.cwd(), 'data', 'residents.json');
-const USERS_FILE = path.join(process.cwd(), 'data', 'users.json');
-
-function readResidents() {
-    try {
-        const data = fs.readFileSync(RESIDENTS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch {
-        return [];
-    }
-}
-
-function writeResidents(residents) {
-    fs.writeFileSync(RESIDENTS_FILE, JSON.stringify(residents, null, 2));
-}
-
-function readUsers() {
-    try {
-        const data = fs.readFileSync(USERS_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch {
-        return [];
-    }
-}
-
-function writeUsers(users) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-}
+import { query } from '@/lib/db';
 
 // GET — return all residents
 export async function GET() {
-    const residents = readResidents();
+    const { rows } = await query('SELECT * FROM residents ORDER BY id');
+    // Convert snake_case to camelCase for frontend compatibility
+    const residents = rows.map(r => ({
+        id: r.id,
+        firstName: r.first_name,
+        middleName: r.middle_name,
+        lastName: r.last_name,
+        suffix: r.suffix,
+        sex: r.sex,
+        civilStatus: r.civil_status,
+        birthdate: r.birthdate,
+        birthplace: r.birthplace,
+        religion: r.religion,
+        citizenship: r.citizenship,
+        purok: r.purok,
+        barangay: r.barangay,
+        city: r.city,
+        mobileNumber: r.mobile_number,
+        email: r.email,
+        mothersMaidenName: r.mothers_maiden_name,
+        fathersName: r.fathers_name,
+        spousesName: r.spouses_name,
+        childsName: r.childs_name,
+        childsMother: r.childs_mother,
+        children: r.children || [],
+        username: r.username,
+        password: r.password,
+        idPicture: r.id_picture,
+    }));
     return NextResponse.json({ residents });
 }
 
@@ -41,55 +39,53 @@ export async function GET() {
 export async function POST(request) {
     try {
         const body = await request.json();
-        const residents = readResidents();
 
-        // Generate a unique ID
-        const maxId = residents.reduce((max, r) => Math.max(max, r.id || 0), 0);
+        const { rows } = await query(
+            `INSERT INTO residents (
+                first_name, middle_name, last_name, suffix,
+                sex, civil_status, birthdate, birthplace, religion,
+                citizenship, purok, barangay, city, mobile_number,
+                email, mothers_maiden_name, fathers_name, spouses_name,
+                childs_name, childs_mother, children, username, password, id_picture
+            ) VALUES (
+                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24
+            ) RETURNING *`,
+            [
+                body.firstName, body.middleName || '', body.lastName, body.suffix || '',
+                body.sex || '', body.civilStatus || '', body.birthdate || '', body.birthplace || '', body.religion || '',
+                body.citizenship || '', body.purok || '', body.barangay || 'Tibanga', body.city || 'Iligan City', body.mobileNumber || '',
+                body.email || '', body.mothersMaidenName || '', body.fathersName || '', body.spousesName || '',
+                body.childsName || '', body.childsMother || '',
+                (body.children || []).filter(c => c.trim() !== ''),
+                body.username || '', body.password || '1234', body.idPicture || '',
+            ]
+        );
+
+        const r = rows[0];
         const newResident = {
-            id: maxId + 1,
-            firstName: body.firstName,
-            middleName: body.middleName,
-            lastName: body.lastName,
-            suffix: body.suffix || '',
-            sex: body.sex,
-            civilStatus: body.civilStatus,
-            birthdate: body.birthdate,
-            birthplace: body.birthplace || '',
-            religion: body.religion || '',
-            citizenship: body.citizenship || '',
-            purok: body.purok,
-            barangay: body.barangay || 'Tibanga',
-            city: body.city || 'Iligan City',
-            mobileNumber: body.mobileNumber || '',
-            email: body.email || '',
-            mothersMaidenName: body.mothersMaidenName || '',
-            fathersName: body.fathersName || '',
-            spousesName: body.spousesName || '',
-            children: (body.children || []).filter(c => c.trim() !== ''),
-            username: body.username || '',
-            password: body.password || '1234',
-            idPicture: body.idPicture || null,
-            createdAt: new Date().toISOString(),
+            id: r.id, firstName: r.first_name, middleName: r.middle_name, lastName: r.last_name,
+            suffix: r.suffix, sex: r.sex, civilStatus: r.civil_status, birthdate: r.birthdate,
+            birthplace: r.birthplace, religion: r.religion, citizenship: r.citizenship,
+            purok: r.purok, barangay: r.barangay, city: r.city, mobileNumber: r.mobile_number,
+            email: r.email, mothersMaidenName: r.mothers_maiden_name, fathersName: r.fathers_name,
+            spousesName: r.spouses_name, children: r.children || [],
+            username: r.username, password: r.password, idPicture: r.id_picture,
         };
 
-        residents.push(newResident);
-        writeResidents(residents);
-
-        // Also create a login account in users.json
+        // Also create a login account in users table
         if (newResident.username) {
-            const users = readUsers();
-            const alreadyExists = users.some(u => u.username === newResident.username);
-            if (!alreadyExists) {
-                const maxUserId = users.reduce((max, u) => Math.max(max, u.id || 0), 0);
-                users.push({
-                    id: maxUserId + 1,
-                    name: `${newResident.firstName} ${newResident.lastName}`,
-                    username: newResident.username,
-                    email: newResident.email || '',
-                    password: newResident.password, // plaintext — auto-hashed on first login
-                    role: 'resident',
-                });
-                writeUsers(users);
+            const { rows: existing } = await query('SELECT id FROM users WHERE username = $1', [newResident.username]);
+            if (existing.length === 0) {
+                await query(
+                    'INSERT INTO users (name, username, email, password, role) VALUES ($1,$2,$3,$4,$5)',
+                    [
+                        `${newResident.firstName} ${newResident.lastName}`,
+                        newResident.username,
+                        newResident.email || '',
+                        newResident.password,
+                        'resident',
+                    ]
+                );
             }
         }
 

@@ -1,19 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import fs from 'fs';
-import path from 'path';
-
-const USERS_FILE = path.join(process.cwd(), 'data', 'users.json');
-const RESIDENTS_FILE = path.join(process.cwd(), 'data', 'residents.json');
-
-function readJSON(filePath) {
-    try { return JSON.parse(fs.readFileSync(filePath, 'utf-8')); }
-    catch { return []; }
-}
-
-function writeJSON(filePath, data) {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-}
+import { query } from '@/lib/db';
 
 // GET — get current user's profile
 export async function GET() {
@@ -22,20 +9,28 @@ export async function GET() {
         return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const users = readJSON(USERS_FILE);
-    const user = users.find((u) => u.id === session.id);
+    const { rows: userRows } = await query('SELECT * FROM users WHERE id = $1', [session.id]);
+    const user = userRows[0];
 
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Also try to find the full resident record
-    const residents = readJSON(RESIDENTS_FILE);
-    const resident = residents.find((r) =>
-        r.username === user.username ||
-        r.email === user.email ||
-        `${r.firstName} ${r.lastName}` === user.name
+    const { rows: resRows } = await query(
+        `SELECT * FROM residents WHERE username = $1 OR email = $2 OR (first_name || ' ' || last_name) = $3`,
+        [user.username, user.email, user.name]
     );
+    const r = resRows[0];
+    const resident = r ? {
+        id: r.id, firstName: r.first_name, middleName: r.middle_name, lastName: r.last_name,
+        suffix: r.suffix, sex: r.sex, civilStatus: r.civil_status, birthdate: r.birthdate,
+        birthplace: r.birthplace, religion: r.religion, citizenship: r.citizenship,
+        purok: r.purok, barangay: r.barangay, city: r.city, mobileNumber: r.mobile_number,
+        email: r.email, mothersMaidenName: r.mothers_maiden_name, fathersName: r.fathers_name,
+        spousesName: r.spouses_name, children: r.children || [],
+        username: r.username, idPicture: r.id_picture,
+    } : null;
 
     return NextResponse.json({
         user: {
@@ -45,7 +40,7 @@ export async function GET() {
             email: user.email || '',
             role: user.role,
         },
-        resident: resident || null,
+        resident,
     });
 }
 
@@ -59,23 +54,21 @@ export async function PATCH(request) {
     const body = await request.json();
     const { name, email, mobileNumber, idPicture, currentPassword, newPassword } = body;
 
-    const users = readJSON(USERS_FILE);
-    const userIdx = users.findIndex((u) => u.id === session.id);
+    const { rows: userRows } = await query('SELECT * FROM users WHERE id = $1', [session.id]);
+    const user = userRows[0];
 
-    if (userIdx === -1) {
+    if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Update basic info
-    if (name) users[userIdx].name = name;
-    if (email !== undefined) users[userIdx].email = email;
+    if (name) await query('UPDATE users SET name = $1 WHERE id = $2', [name, session.id]);
+    if (email !== undefined) await query('UPDATE users SET email = $1 WHERE id = $2', [email, session.id]);
 
     // Password change
     if (newPassword) {
         const bcrypt = (await import('bcryptjs')).default;
-        const user = users[userIdx];
 
-        // Verify current password
         let valid = false;
         if (user.password.startsWith('$2')) {
             valid = await bcrypt.compare(currentPassword, user.password);
@@ -87,23 +80,21 @@ export async function PATCH(request) {
             return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 });
         }
 
-        users[userIdx].password = await bcrypt.hash(newPassword, 10);
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await query('UPDATE users SET password = $1 WHERE id = $2', [hashed, session.id]);
     }
 
-    writeJSON(USERS_FILE, users);
-
     // Also update resident record if exists
-    const residents = readJSON(RESIDENTS_FILE);
-    const residentIdx = residents.findIndex((r) =>
-        r.username === users[userIdx].username ||
-        `${r.firstName} ${r.lastName}` === session.name
+    const { rows: resRows } = await query(
+        `SELECT id FROM residents WHERE username = $1 OR (first_name || ' ' || last_name) = $2`,
+        [user.username, session.name]
     );
 
-    if (residentIdx !== -1) {
-        if (email !== undefined) residents[residentIdx].email = email;
-        if (mobileNumber !== undefined) residents[residentIdx].mobileNumber = mobileNumber;
-        if (idPicture !== undefined) residents[residentIdx].idPicture = idPicture;
-        writeJSON(RESIDENTS_FILE, residents);
+    if (resRows.length > 0) {
+        const residentId = resRows[0].id;
+        if (email !== undefined) await query('UPDATE residents SET email = $1 WHERE id = $2', [email, residentId]);
+        if (mobileNumber !== undefined) await query('UPDATE residents SET mobile_number = $1 WHERE id = $2', [mobileNumber, residentId]);
+        if (idPicture !== undefined) await query('UPDATE residents SET id_picture = $1 WHERE id = $2', [idPicture, residentId]);
     }
 
     return NextResponse.json({ success: true });

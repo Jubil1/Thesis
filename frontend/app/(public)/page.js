@@ -1,15 +1,48 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import TimeDisplay from '@/components/TimeDisplay';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
 import ActionLink from './components/ActionLink';
 import styles from './page.module.css';
 
-export const metadata = {
-    title: 'MyTibangaPortal - Barangay Tibanga, Iligan City',
-    description: 'The Official Website of Barangay Tibanga, Iligan City. Access barangay services, request documents, and stay updated.',
-};
-
 export default function HomePage() {
+    const [content, setContent] = useState(null);
+
+    useEffect(() => {
+        fetch('/api/admin/homepage')
+            .then((res) => res.ok ? res.json() : null)
+            .then((data) => setContent(data))
+            .catch(() => { });
+    }, []);
+
+    // Fallback while loading
+    if (!content) {
+        return (
+            <section id="home" className={styles.homeSection}>
+                <TimeDisplay />
+                <div className={styles.welcomeSection}>
+                    <div className={styles.welcomeText}>Welcome to</div>
+                    <h1 className={styles.mainTitle}>
+                        <span className={styles.titleMy}>My</span>
+                        <span className={styles.titleTibanga}>Tibanga</span>
+                        <span className={styles.titlePortal}>Portal</span>
+                    </h1>
+                    <p className={styles.subtitle}>Loading…</p>
+                </div>
+            </section>
+        );
+    }
+
+    // Parse bold markdown in newHereText (e.g. **New Here?**)
+    const renderNewHere = (text) => {
+        const parts = text.split(/\*\*(.*?)\*\*/);
+        return parts.map((part, i) =>
+            i % 2 === 1 ? <strong key={i}>{part}</strong> : part
+        );
+    };
+
     return (
         <>
             {/* Home Section */}
@@ -25,7 +58,7 @@ export default function HomePage() {
                         <span className={styles.titlePortal}>Portal</span>
                     </h1>
                     <p className={styles.subtitle}>
-                        The Official Website of Barangay Tibanga, Iligan City
+                        {content.welcome.subtitle}
                     </p>
                 </div>
 
@@ -37,7 +70,7 @@ export default function HomePage() {
                         </div>
                         <div className={styles.actionItem}>
                             <p className={styles.newUserText}>
-                                <strong>New Here?</strong> Go to our Barangay Office and have yourself registered
+                                {renderNewHere(content.welcome.newHereText)}
                             </p>
                         </div>
                     </div>
@@ -49,52 +82,29 @@ export default function HomePage() {
 
             {/* About Section */}
             <section id="about" className={styles.contentSection}>
-                <h2>About Barangay Tibanga</h2>
-                <p>
-                    Barangay Tibanga is a progressive community in Iligan City, committed to serving
-                    our residents with excellence and transparency. We strive to provide accessible
-                    services and maintain open communication with all community members.
-                </p>
+                <h2>{content.about.heading}</h2>
+                <p>{content.about.description}</p>
                 <div className={styles.servicesGrid}>
-                    <div className={styles.serviceCard}>
-                        <h3>Community Services</h3>
-                        <p>We offer various community programs and services to enhance the quality of life for all residents.</p>
-                    </div>
-                    <div className={styles.serviceCard}>
-                        <h3>Local Government</h3>
-                        <p>Transparent and accountable local governance dedicated to serving the people of Tibanga.</p>
-                    </div>
-                    <div className={styles.serviceCard}>
-                        <h3>Public Safety</h3>
-                        <p>Maintaining peace and order through community cooperation and effective safety measures.</p>
-                    </div>
+                    {content.about.cards.map((card, i) => (
+                        <div key={i} className={styles.serviceCard}>
+                            <h3>{card.title}</h3>
+                            <p>{card.description}</p>
+                        </div>
+                    ))}
                 </div>
             </section>
 
             {/* Services Section */}
             <section id="services" className={styles.contentSection}>
-                <h2>Our Services</h2>
-                <p>
-                    We provide various document and administrative services to make government
-                    processes more accessible to our community.
-                </p>
+                <h2>{content.services.heading}</h2>
+                <p>{content.services.description}</p>
                 <div className={styles.servicesGrid}>
-                    <div className={styles.serviceCard}>
-                        <h3>Document Requests</h3>
-                        <p>Barangay clearance, certificates of residency, indigency certificates, and other official documents.</p>
-                    </div>
-                    <div className={styles.serviceCard}>
-                        <h3>Business Permits</h3>
-                        <p>Assistance with barangay business permit applications and renewals for local entrepreneurs.</p>
-                    </div>
-                    <div className={styles.serviceCard}>
-                        <h3>Community Records</h3>
-                        <p>Maintenance of resident records, birth registrations, and other vital community documentation.</p>
-                    </div>
-                    <div className={styles.serviceCard}>
-                        <h3>Mediation Services</h3>
-                        <p>Peaceful resolution of community disputes through our mediation and conflict resolution programs.</p>
-                    </div>
+                    {content.services.cards.map((card, i) => (
+                        <div key={i} className={styles.serviceCard}>
+                            <h3>{card.title}</h3>
+                            <p>{card.description}</p>
+                        </div>
+                    ))}
                 </div>
             </section>
         </>

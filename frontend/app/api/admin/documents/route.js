@@ -1,28 +1,27 @@
 import { NextResponse } from 'next/server';
+import { query } from '@/lib/db';
 import fs from 'fs';
 import path from 'path';
 
-const DATA_FILE = path.join(process.cwd(), 'data', 'documents.json');
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'documents');
 const IMAGES_DIR = path.join(process.cwd(), 'public', 'images');
 
-function readDocuments() {
-    try {
-        const data = fs.readFileSync(DATA_FILE, 'utf-8');
-        return JSON.parse(data);
-    } catch {
-        return [];
-    }
-}
-
-function writeDocuments(docs) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(docs, null, 2));
+// Helper: convert DB row to camelCase
+function toCamel(d) {
+    return {
+        id: d.id,
+        name: d.name,
+        preview: d.preview,
+        file: d.file,
+        dateModified: d.date_modified,
+        dateUploaded: d.date_uploaded,
+    };
 }
 
 // GET — list all documents
 export async function GET() {
-    const documents = readDocuments();
-    return NextResponse.json({ documents });
+    const { rows } = await query('SELECT * FROM documents ORDER BY id DESC');
+    return NextResponse.json({ documents: rows.map(toCamel) });
 }
 
 // POST — upload a new document
@@ -61,21 +60,14 @@ export async function POST(request) {
             previewPath = `/images/${previewName}`;
         }
 
-        // Add to documents.json
-        const documents = readDocuments();
         const now = new Date().toISOString();
-        const newDoc = {
-            id: Date.now(),
-            name: name,
-            preview: previewPath,
-            file: `/documents/${fileName}`,
-            dateModified: now,
-            dateUploaded: now,
-        };
-        documents.push(newDoc);
-        writeDocuments(documents);
+        const id = Date.now();
+        const { rows } = await query(
+            'INSERT INTO documents (id, name, preview, file, date_modified, date_uploaded) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+            [id, name, previewPath, `/documents/${fileName}`, now, now]
+        );
 
-        return NextResponse.json({ success: true, document: newDoc });
+        return NextResponse.json({ success: true, document: toCamel(rows[0]) });
     } catch (err) {
         return NextResponse.json({ error: 'Upload failed: ' + err.message }, { status: 500 });
     }
@@ -85,14 +77,13 @@ export async function POST(request) {
 export async function DELETE(request) {
     try {
         const { id } = await request.json();
-        const documents = readDocuments();
-        const docIndex = documents.findIndex((d) => d.id === id);
+        const { rows } = await query('SELECT * FROM documents WHERE id = $1', [id]);
 
-        if (docIndex === -1) {
+        if (rows.length === 0) {
             return NextResponse.json({ error: 'Document not found' }, { status: 404 });
         }
 
-        const doc = documents[docIndex];
+        const doc = rows[0];
 
         // Delete files from public/documents
         const filePath = path.join(process.cwd(), 'public', doc.file);
@@ -106,10 +97,7 @@ export async function DELETE(request) {
             }
         }
 
-        // Remove from array
-        documents.splice(docIndex, 1);
-        writeDocuments(documents);
-
+        await query('DELETE FROM documents WHERE id = $1', [id]);
         return NextResponse.json({ success: true });
     } catch (err) {
         return NextResponse.json({ error: 'Delete failed: ' + err.message }, { status: 500 });
@@ -127,12 +115,12 @@ export async function PATCH(request) {
             return NextResponse.json({ error: 'ID and file are required' }, { status: 400 });
         }
 
-        const documents = readDocuments();
-        const doc = documents.find((d) => d.id === id);
-
-        if (!doc) {
+        const { rows } = await query('SELECT * FROM documents WHERE id = $1', [id]);
+        if (rows.length === 0) {
             return NextResponse.json({ error: 'Document not found' }, { status: 404 });
         }
+
+        const doc = rows[0];
 
         // Delete old file
         const oldFilePath = path.join(process.cwd(), 'public', doc.file);
@@ -146,13 +134,13 @@ export async function PATCH(request) {
         const filePath = path.join(UPLOAD_DIR, fileName);
         fs.writeFileSync(filePath, fileBuffer);
 
-        // Update only dateModified and file path
-        doc.file = `/documents/${fileName}`;
-        doc.dateModified = new Date().toISOString();
+        const now = new Date().toISOString();
+        const { rows: updated } = await query(
+            'UPDATE documents SET file = $1, date_modified = $2 WHERE id = $3 RETURNING *',
+            [`/documents/${fileName}`, now, id]
+        );
 
-        writeDocuments(documents);
-
-        return NextResponse.json({ success: true, document: doc });
+        return NextResponse.json({ success: true, document: toCamel(updated[0]) });
     } catch (err) {
         return NextResponse.json({ error: 'Update failed: ' + err.message }, { status: 500 });
     }

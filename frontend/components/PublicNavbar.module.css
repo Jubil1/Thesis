@@ -151,7 +151,7 @@
     background: white;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    min-width: 160px;
+    min-width: 190px;
     overflow: hidden;
     z-index: 1001;
     animation: dropdownSlide 0.2s ease;
@@ -170,20 +170,32 @@
 }
 
 .dropdownItem {
+    display: block;
     width: 100%;
     padding: 0.75rem 1.25rem;
     border: none;
     background: none;
-    color: #e53935;
+    color: #333;
     font-weight: 500;
     font-size: 0.9rem;
     cursor: pointer;
     text-align: left;
+    text-decoration: none;
     font-family: inherit;
-    transition: background 0.2s ease;
+    white-space: nowrap;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.dropdownItem:last-child {
+    color: #e53935;
+    border-top: 1px solid #f0f0f0;
 }
 
 .dropdownItem:hover {
+    background: #f5f5f5;
+}
+
+.dropdownItem:last-child:hover {
     background: #fef2f2;
 }
 

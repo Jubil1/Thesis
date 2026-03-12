@@ -5,7 +5,14 @@
     "username": "admin",
     "email": "admin@tibanga.gov.ph",
     "password": "$2b$10$ZHtHuOEa0Iar8xAV.R5oKON94rbBnygo9gTRA.3Ef1GAENLvujtSK",
-    "role": "admin"
+    "role": "admin",
+    "superAdmin": true,
+    "permissions": [
+      "fees",
+      "announcements",
+      "puroks",
+      "admin-management"
+    ]
   },
   {
     "id": 2,
@@ -38,5 +45,16 @@
     "email": "zz@gmail.com",
     "password": "$2b$10$627tRFJfEEegvrvE2Mf9qep4wItmEZHvJPCf8B8eDOyGV2VHfF9Ka",
     "role": "resident"
+  },
+  {
+    "id": 6,
+    "name": "test",
+    "username": "test",
+    "email": "test@gmail.com",
+    "password": "$2b$10$kHQKkxBYoczjJfcUftB30OacsT7LGpiwThMbre0dNJ6uwUA6TgTFG",
+    "role": "admin",
+    "permissions": [
+      "fees"
+    ]
   }
 ]
